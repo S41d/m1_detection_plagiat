@@ -17,13 +17,13 @@ fi
 
 cp $1 ./compiled/$1
 cd ./compiled
-ocamlc unix.cma -o $filename.byt $1
+ocamlc -g -o $filename.byt $1
 rm ./$1
 cd ..
 
 if [ "$2" != "" ];
 then
     ./compiled/$filename.byt $2
-else 
+else
     ./compiled/$filename.byt
 fi
