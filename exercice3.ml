@@ -1,11 +1,36 @@
 type stree =
   | Tree of stree list
-  | Node of char * stree list
-  | Leaf of char
+  | Node of string * stree list
+  | Leaf of string
 ;;
-exception NotTree of string;;
 
-let str_explode s = s |> String.to_seq |> List.of_seq ;;
+let str_explode s =
+  let char_list = List.init (String.length s) (String.get s) in
+  let rec aux ch =
+    match ch with
+    | [] -> []
+    | h::t -> (String.make 1 h)::aux t
+  in aux char_list
+;;
+
+let rec str_implode cl =
+  match cl with
+  | [] -> ""
+  | h::t -> h^str_implode t
+;;
+
+let longest_str l =
+  let rec aux max l =
+    match l with
+    | [] -> max
+    | h::t ->
+      begin
+        let str_len = String.length h in
+        if str_len > max then aux str_len t
+        else aux max t
+      end
+  in aux 0 l
+;;
 
 let val_node n =
   match n with
@@ -21,7 +46,7 @@ let rec make_tree node char_list =
     | hc::tc ->
       match node_list with
       | [] -> 
-        if hc = '#' then [Leaf '#']
+        if hc = "#" then [Leaf "#"]
         else [Node (hc, make_tree_list [] tc)]
       | hn::tn ->
         if val_node hn = hc then (make_tree hn cl)::tn
@@ -50,11 +75,9 @@ let arbre_suffixe str =
     in 
     let st = aux stree char_list in
     match st with
-    | Tree l -> Tree(l@[Leaf '#'])
-    | _ -> failwith "not a tree";;
+    | Tree l -> Tree(l@[Leaf "#"])
+    | _ -> failwith "not a tree(arbre_suffixe)";;
 ;;
-
-let t = arbre_suffixe "ANANAS#";;
 
 let rec tree_has node char_list =
   let rec tree_has_list node_list cl = 
@@ -74,7 +97,8 @@ let rec tree_has node char_list =
   in
   match node with
     | Tree l -> tree_has_list l char_list
-    | _ -> failwith "not a tree";
+    | Node (c, l) -> c = str_implode char_list && tree_has_list l char_list
+    | Leaf c -> c = str_implode char_list
 ;;
 
 let sous_chaine str substr =
@@ -82,4 +106,49 @@ let sous_chaine str substr =
   tree_has tree (str_explode substr)
 ;;
 
-let sc = sous_chaine "ANA#" "NA";;
+let sous_chaine_commune s1 s2 =
+  let rec aux tree ct =
+    let rec aux2 tree ct =
+      match ct with
+      | [] -> tree
+      | h::[] -> tree
+      | h::t -> aux2 (make_tree tree ct) t
+    in
+    let st = aux2 tree ct in
+    match st with
+    | Tree l -> Tree(l@[Leaf "#"])
+    | _ -> failwith "not a tree (aux scc)"
+  in
+  let ct2 = str_explode (s2) in
+  let tree1 = arbre_suffixe (s1^"#") in
+  let tree2 = aux tree1 ct2 in
+  let rec parcours tree =
+    let rec parcours_liste l =
+      match l with
+      | [] -> (0, [])
+      | h::t -> 
+        let (l1, r1) = parcours h in
+        if tree_has h r1 then
+          let (l2, r2) = parcours_liste t in
+          if l1 > l2 then 
+            (l1, r1)
+          else 
+            (l2, r2)
+        else (l1, r1)
+    in
+    match tree with
+    | Leaf c -> (0, [])
+    | Node (c, l) ->
+      if tree_has tree (str_explode c) then
+        let (count, cl) = (parcours_liste l) in
+        (count+1, c::cl)
+      else parcours_liste l
+    | Tree l -> parcours_liste l
+  in parcours tree2
+;;
+
+let t = arbre_suffixe "ANANAS#";;
+
+let scc = sous_chaine_commune "ANANAS" "BANANE";;
+
+let scc = sous_chaine_commune "ABA" "CACAB";;
