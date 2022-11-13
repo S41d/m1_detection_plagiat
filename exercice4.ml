@@ -37,4 +37,4 @@ let rec compression node =
     | _ -> failwith "not a node"
 ;;
 
-let compresse = compression t;;
+(* let compresse = compression t;; *)
