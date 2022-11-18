@@ -1,13 +1,3 @@
-let print_list l =
-    let rec aux l =
-        match l with
-        | [] -> ""
-        | h::[] -> h
-        | h::t -> h ^ ";" ^ (aux t)
-    in
-    print_string ("[" ^ (aux l) ^ "]");
-;;
-
 let rec move_list liste i count = 
   match liste with 
   | [] -> [] 

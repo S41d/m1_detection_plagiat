@@ -1,5 +1,6 @@
 .vscode/
-compiled
+compiled/
+.obsidian/
 
 cours.pdf
 Cours01_prog.pdf

@@ -1,8 +1,4 @@
-type stree =
-  | Tree of stree list
-  | Node of string * stree list
-  | Leaf of string
-;;
+type node = Node of string * node list;;
 
 let str_explode s =
   let char_list = List.init (String.length s) (String.get s) in
@@ -19,46 +15,18 @@ let rec str_implode cl =
   | h::t -> h^str_implode t
 ;;
 
-let longest_str l =
-  let rec aux max l =
-    match l with
-    | [] -> max
-    | h::t ->
-      begin
-        let str_len = String.length h in
-        if str_len > max then aux str_len t
-        else aux max t
-      end
-  in aux 0 l
-;;
+let val_node n = let Node(v, _) = n in v;;
 
-let val_node n =
-  match n with
-  | Leaf v -> v
-  | Node(v, _) -> v
-  | Tree l -> failwith "failed"
-;;
-
-let rec make_tree node char_list =
-  let rec make_tree_list node_list cl =
-    match cl with
-    | [] -> []
-    | hc::tc ->
-      match node_list with
-      | [] -> 
-        if hc = "#" then [Leaf "#"]
-        else [Node (hc, make_tree_list [] tc)]
-      | hn::tn ->
-        if val_node hn = hc then (make_tree hn cl)::tn
-        else hn::make_tree_list tn cl
-  in
-  match char_list with
-  | [] -> failwith "charlist empty"
+let rec make_tree node_list cl =
+  match cl with
+  | [] -> []
   | hc::tc ->
-    match node with
-    | Leaf _ -> node
-    | Tree l -> Tree(make_tree_list l char_list)
-    | Node(c, l) -> Node(c, make_tree_list l tc)
+    match node_list with
+    | [] -> [Node (hc, make_tree [] tc)]
+    | hn::tn ->
+      let Node(chn, lhn) = hn in
+      if chn = hc then Node(hc, make_tree lhn tc)::tn
+      else hn::make_tree tn cl
 ;;
 
 let arbre_suffixe str =
@@ -66,39 +34,30 @@ let arbre_suffixe str =
     then failwith "texte invalide"
   else
     let char_list = str_explode str in
-    let stree = Tree([]) in
+    let stree = [] in
     let rec aux tree ct =
       match ct with
       | [] -> tree
       | h::[] -> tree
       | h::t -> aux (make_tree tree ct) t
     in 
-    let st = aux stree char_list in
-    match st with
-    | Tree l -> Tree(l@[Leaf "#"])
-    | _ -> failwith "not a tree(arbre_suffixe)";;
+    let tree = aux stree char_list in
+    tree@[Node ("#", [])];;
 ;;
 
-let rec tree_has node char_list =
-  let rec tree_has_list node_list cl = 
-    match cl with
-    | [] -> true
-    | hc::tc ->
-      match node_list with
-      | [] -> false
-      | hn::tn ->
-        if val_node hn = hc then 
-          match hn with
-          | Leaf c -> true
-          | Node(c, l) -> tree_has_list l tc
-          | Tree _ -> failwith "tree should be node"
-        else 
-          tree_has_list tn cl
-  in
-  match node with
-    | Tree l -> tree_has_list l char_list
-    | Node (c, l) -> c = str_implode char_list && tree_has_list l char_list
-    | Leaf c -> c = str_implode char_list
+let rec tree_has node_list cl =
+  match cl with
+  | [] -> true
+  | hc::tc ->
+    match node_list with
+    | [] -> false
+    | hn::tn ->
+      if val_node hn = hc then
+        match hn with
+        | Node(c, [])-> true
+        | Node(c, l) -> tree_has l tc
+      else
+        tree_has tn cl
 ;;
 
 let sous_chaine str substr =
@@ -106,49 +65,55 @@ let sous_chaine str substr =
   tree_has tree (str_explode substr)
 ;;
 
+let longest_str str1 str2 =
+  if String.length str1 > String.length str2 then str1 else str2
+;;
+
+let rec common_substring tree =
+    match tree with
+    | [] -> ("", false, false)
+    | Node(c, l)::t ->
+      if c = "#" then
+        ("", true, false)
+      else if c = "$" then
+        ("", false, true)
+      else
+        let (str_suite, be1_suite, be2_suite) = common_substring l in
+        let (str_reste, be1_reste, be2_reste) = common_substring t in
+        if be1_suite && be2_suite && be1_reste && be2_reste then
+          (c^longest_str str_suite str_reste, true, true)
+        else if be1_suite && be2_suite then
+          (c^str_suite, true, true)
+        else if be1_reste && be2_reste then
+          (c^str_reste, true, true)
+        else
+          (str_reste, (be1_suite || be1_reste), (be2_suite || be2_reste))
+;;
+
 let sous_chaine_commune s1 s2 =
   let rec aux tree ct =
-    let rec aux2 tree ct =
-      match ct with
-      | [] -> tree
-      | h::[] -> tree
-      | h::t -> aux2 (make_tree tree ct) t
-    in
-    let st = aux2 tree ct in
-    match st with
-    | Tree l -> Tree(l@[Leaf "#"])
-    | _ -> failwith "not a tree (aux scc)"
+    match ct with
+    | [] -> tree
+    | h::[] -> tree
+    | h::t -> aux (make_tree tree ct) t
   in
-  let ct2 = str_explode (s2) in
+  let ct2 = str_explode (s2^"$") in
   let tree1 = arbre_suffixe (s1^"#") in
-  let tree2 = aux tree1 ct2 in
-  let rec parcours tree =
-    let rec parcours_liste l =
-      match l with
-      | [] -> (0, [])
-      | h::t -> 
-        let (l1, r1) = parcours h in
-        if tree_has h r1 then
-          let (l2, r2) = parcours_liste t in
-          if l1 > l2 then 
-            (l1, r1)
-          else 
-            (l2, r2)
-        else (l1, r1)
-    in
+  let tree2 = (aux tree1 (ct2))@[Node ("$", [])] in
+  let rec aux2 tree str =
     match tree with
-    | Leaf c -> (0, [])
-    | Node (c, l) ->
-      if tree_has tree (str_explode c) then
-        let (count, cl) = (parcours_liste l) in
-        (count+1, c::cl)
-      else parcours_liste l
-    | Tree l -> parcours_liste l
-  in parcours tree2
+    | [] -> str
+    | h::t ->
+      let (s, b1, b2) = common_substring tree in
+      if b1 && b2 && String.length s > String.length str then
+        aux2 t s
+      else
+        aux2 t str
+  in
+  let plsc = aux2 tree2 "" in
+  (String.length plsc, plsc)
 ;;
 
 let t = arbre_suffixe "ANANAS#";;
 
 let scc = sous_chaine_commune "ANANAS" "BANANE";;
-
-let scc = sous_chaine_commune "ABA" "CACAB";;
